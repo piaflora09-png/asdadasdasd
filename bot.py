@@ -24,9 +24,9 @@ EMOJI_MONEY_TO_STUFF = discord.PartialEmoji.from_str("<:786534money:157476116292
 
 # Optional Default Configuration IDs (can also be updated live with $setconfig)
 CONFIG: dict[str, int | None] = {
-    "category_id": None,
-    "middleman_role_id": None,
-    "log_channel_id": None,
+    "category_id": 1568386340809080902,
+    "middleman_role_id": 1568387457752371270, 1568386943945801839, 1568387066709024788, 1568387138322694268
+    "log_channel_id": 1569058957404803153,
 }
 
 DB_PATH = str(BASE_DIR / "middleman_data.db")
