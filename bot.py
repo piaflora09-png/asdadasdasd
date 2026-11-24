@@ -22,10 +22,15 @@ START_TICKET_COUNT = 264
 EMOJI_STUFF_TO_STUFF = discord.PartialEmoji.from_str("<:130341stock:1574761311085002825>")
 EMOJI_MONEY_TO_STUFF = discord.PartialEmoji.from_str("<:786534money:1574761162921476137>")
 
-# Optional Default Configuration IDs (can also be updated live with $setconfig)
-CONFIG: dict[str, int | None] = {
+# Configuration (supports multiple middleman role IDs and optional category/log channel IDs)
+CONFIG: dict[str, int | list[int] | None] = {
     "category_id": 1568386340809080902,
-    "middleman_role_id": 1568387457752371270, 1568386943945801839, 1568387066709024788, 1568387138322694268
+    "middleman_role_ids": [
+        1568387457752371270,
+        1568386943945801839,
+        1568387066709024788,
+        1568387138322694268,
+    ],
     "log_channel_id": 1569058957404803153,
 }
 
@@ -54,8 +59,8 @@ def init_db():
             """
         )
         for row in conn.execute("SELECT key, value FROM bot_config"):
-            if row[0] in CONFIG:
-                CONFIG[row[0]] = row[1]
+            if row[0] in ("category_id", "log_channel_id") and row[1] is not None:
+                CONFIG[row[0]] = int(row[1])
 
         cur = conn.execute("SELECT value FROM bot_config WHERE key = 'ticket_count'")
         existing = cur.fetchone()
@@ -90,13 +95,14 @@ def increment_ticket_count() -> int:
         return next_count
 
 
-def save_config_value(key: str, value: int | None):
+def save_config_value(key: str, value: int | list[int] | None):
     CONFIG[key] = value
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute(
-            "INSERT OR REPLACE INTO bot_config (key, value) VALUES (?, ?)",
-            (key, value),
-        )
+    if isinstance(value, int) or value is None:
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO bot_config (key, value) VALUES (?, ?)",
+                (key, value),
+            )
 
 
 def add_vouch(middleman_id: int, voter_id: int, note: str) -> int:
@@ -181,9 +187,9 @@ def is_middleman(member: discord.abc.User) -> bool:
         return False
     if member.guild_permissions.administrator:
         return True
-    mm_role_id = CONFIG.get("middleman_role_id")
-    if mm_role_id is not None:
-        return any(role.id == mm_role_id for role in member.roles)
+    mm_role_ids = CONFIG.get("middleman_role_ids")
+    if isinstance(mm_role_ids, list) and mm_role_ids:
+        return any(role.id in mm_role_ids for role in member.roles)
     return True
 
 
@@ -233,7 +239,7 @@ async def send_trade_log(
     closed_by: discord.abc.User,
 ):
     log_channel_id = CONFIG.get("log_channel_id")
-    if log_channel_id is None:
+    if not isinstance(log_channel_id, int):
         return
     log_channel = guild.get_channel(log_channel_id)
     if not isinstance(log_channel, discord.TextChannel):
@@ -334,7 +340,7 @@ class TradeDetailsModal(discord.ui.Modal):
             return
 
         cat_id = CONFIG.get("category_id")
-        category = guild.get_channel(cat_id) if cat_id else None
+        category = guild.get_channel(cat_id) if isinstance(cat_id, int) else None
         if not isinstance(category, discord.CategoryChannel):
             category = None
 
@@ -352,13 +358,14 @@ class TradeDetailsModal(discord.ui.Modal):
             ),
         }
 
-        mm_role_id = CONFIG.get("middleman_role_id")
-        if mm_role_id:
-            mm_role = guild.get_role(mm_role_id)
-            if mm_role:
-                overwrites[mm_role] = discord.PermissionOverwrite(
-                    view_channel=True, send_messages=True, read_message_history=True
-                )
+        mm_role_ids = CONFIG.get("middleman_role_ids")
+        if isinstance(mm_role_ids, list):
+            for role_id in mm_role_ids:
+                mm_role = guild.get_role(role_id)
+                if mm_role:
+                    overwrites[mm_role] = discord.PermissionOverwrite(
+                        view_channel=True, send_messages=True, read_message_history=True
+                    )
 
         prefix = "mm-money" if self.trade_type == "money_to_stuff" else "mm-stuff"
         clean_user = "".join(
@@ -700,18 +707,25 @@ async def mmpanel_prefix(ctx: commands.Context):
 @commands.has_permissions(administrator=True)
 async def setconfig_prefix(ctx: commands.Context, setting: str, target_id: int):
     """Configure category, role, or logs channel ID via $setconfig."""
+    setting_lower = setting.lower()
+    if setting_lower == "role":
+        mm_roles = CONFIG.setdefault("middleman_role_ids", [])
+        if isinstance(mm_roles, list) and target_id not in mm_roles:
+            mm_roles.append(target_id)
+        await ctx.send(f"✅ Added middleman role ID `{target_id}`.")
+        return
+
     mapping = {
         "category": "category_id",
-        "role": "middleman_role_id",
         "logs": "log_channel_id",
     }
-    key = mapping.get(setting.lower())
+    key = mapping.get(setting_lower)
     if key is None:
         await ctx.send("Invalid option. Use `category`, `role`, or `logs`. Example: `$setconfig logs 123456789012345678`")
         return
 
     save_config_value(key, target_id)
-    await ctx.send(f"✅ Updated `{setting.lower()}` ID to `{target_id}`.")
+    await ctx.send(f"✅ Updated `{setting_lower}` ID to `{target_id}`.")
 
 
 @bot.command(name="adduser")
@@ -863,6 +877,6 @@ async def mm_panel_slash(interaction: discord.Interaction):
 
 
 if __name__ == "__main__":
-    BOT_TOKEN = "PASTE_YOUR_BOT_TOKEN_HERE"
+    BOT_TOKEN = os.environ.get("BOT_TOKEN") or "PASTE_YOUR_BOT_TOKEN_HERE"
     threading.Thread(target=run_website, daemon=True).start()
     bot.run(BOT_TOKEN)
