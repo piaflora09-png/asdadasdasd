@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vortex Exchange Bot Middleman — Streaming Desk</title>
+  <style>
+    :root {
+      --bg-dark: #090612;
+      --bg-card: rgba(24, 16, 44, 0.86);
+      --purple-primary: #9333ea;
+      --purple-bright: #c084fc;
+      --purple-glow: rgba(147, 51, 234, 0.35);
+      --border-purple: rgba(192, 132, 252, 0.32);
+      --text-main: #f5f3ff;
+      --text-muted: #c4b5fd;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 20% 10%, rgba(147, 51, 234, 0.35), transparent 45%),
+        radial-gradient(circle at 85% 20%, rgba(126, 34, 206, 0.25), transparent 40%),
+        var(--bg-dark);
+      color: var(--text-main);
+      padding: 36px 18px 60px;
+    }
+
+    .wrapper {
+      max-width: 940px;
+      margin: 0 auto;
+    }
+
+    .hero {
+      background: var(--bg-card);
+      border: 1px solid var(--border-purple);
+      border-radius: 20px;
+      padding: 26px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 22px;
+      box-shadow: 0 14px 40px var(--purple-glow);
+      backdrop-filter: blur(12px);
+    }
+
+    .avatar-box {
+      position: relative;
+      width: 92px;
+      height: 92px;
+      flex-shrink: 0;
+    }
+
+    .avatar-box img {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid var(--purple-bright);
+      box-shadow: 0 0 22px var(--purple-glow);
+    }
+
+    .stream-dot {
+      position: absolute;
+      bottom: 3px;
+      right: 3px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #a855f7;
+      border: 3px solid #140c26;
+      box-shadow: 0 0 12px #c084fc;
+    }
+
+    .hero-info {
+      flex: 1;
+      min-width: 240px;
+    }
+
+    .stream-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: linear-gradient(90deg, #7e22ce, #a855f7);
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.7px;
+      text-transform: uppercase;
+      padding: 5px 12px;
+      border-radius: 999px;
+      margin-bottom: 10px;
+    }
+
+    .stream-badge span.pulse {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ffffff;
+      animation: blink 1.3s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.35; }
+    }
+
+    .hero h1 {
+      font-size: 26px;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+
+    .hero p {
+      color: var(--text-muted);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .banner-card {
+      margin-top: 20px;
+      border-radius: 18px;
+      overflow: hidden;
+      border: 1px solid var(--border-purple);
+      background: var(--bg-card);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+    }
+
+    .banner-card img {
+      width: 100%;
+      max-height: 250px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-top: 20px;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-purple);
+      border-radius: 16px;
+      padding: 18px 20px;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .stat-value {
+      font-size: 24px;
+      font-weight: 800;
+      color: #ffffff;
+    }
+
+    .stat-value.purple {
+      color: var(--purple-bright);
+    }
+
+    .section-card {
+      margin-top: 22px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-purple);
+      border-radius: 18px;
+      padding: 22px;
+    }
+
+    .section-card h2 {
+      font-size: 18px;
+      color: var(--purple-bright);
+      margin-bottom: 14px;
+    }
+
+    .cmd-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 12px;
+    }
+
+    .cmd-item {
+      background: rgba(15, 10, 28, 0.8);
+      border: 1px solid rgba(192, 132, 252, 0.2);
+      border-radius: 12px;
+      padding: 12px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .cmd-item code {
+      color: #f3e8ff;
+      background: rgba(147, 51, 234, 0.28);
+      padding: 4px 8px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .cmd-item small {
+      display: block;
+      color: var(--text-muted);
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
+    .copy-btn {
+      background: rgba(147, 51, 234, 0.25);
+      border: 1px solid var(--border-purple);
+      color: #ffffff;
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .copy-btn:hover {
+      background: var(--purple-primary);
+    }
+
+    .modes-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+    }
+
+    .mode-box {
+      background: rgba(15, 10, 28, 0.8);
+      border: 1px solid rgba(192, 132, 252, 0.22);
+      border-radius: 14px;
+      padding: 16px;
+    }
+
+    .mode-box h3 {
+      font-size: 15px;
+      color: #ffffff;
+      margin-bottom: 8px;
+    }
+
+    .mode-box p {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.55;
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 28px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <section class="hero">
+      <div class="avatar-box">
+        <img
+          src="https://images-ext-1.discordapp.net/external/lCuS8BCgTx74gRORUulzqG5aTxEuUmNujv26QzCRwWw/https/cdn.discordapp.com/icons/1542941315933667348/65941658abfc7796e785d9c1c541549e.webp?format=webp"
+          alt="Purple Streaming Bot Icon"
+        />
+        <span class="stream-dot" title="Streaming"></span>
+      </div>
+
+      <div class="hero-info">
+        <div class="stream-badge">
+          <span class="pulse"></span>
+          🟣 Streaming Live
+        </div>
+        <h1 id="bot-title">Vortex Exchange Bot Middleman</h1>
+        <p>
+          Automated Discord Middleman Ticket Desk for safe <strong>Stuff to Stuff</strong> and
+          <strong>Money to Stuff</strong> trades with instant claiming, deal summaries, and vouch tracking.
+        </p>
+      </div>
+    </section>
+
+    <div class="banner-card">
+      <img
+        src="https://images-ext-1.discordapp.net/external/bkYRRSFTzNt2_ZrvHFbQppLmqod4FLB2SUv8CPhk7dE/%3Fsize%3D1024/https/cdn.discordapp.com/banners/1542941315933667348/2d08ded8089f6635b6761501eaf96ac3.webp?format=webp"
+        alt="Vortex Exchange Banner"
+      />
+    </div>
+
+    <section class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Presence Status</div>
+        <div class="stat-value purple" id="status-val">STREAMING</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Tickets Started</div>
+        <div class="stat-value purple" id="started-val">264</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Active Tickets</div>
+        <div class="stat-value" id="tickets-val">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Vouches</div>
+        <div class="stat-value" id="vouches-val">0</div>
+      </div>
+    </section>
+
+    <section class="section-card">
+      <h2>Middleman Trade Modes</h2>
+      <div class="modes-grid">
+        <div class="mode-box">
+          <h3>Stuff to Stuff</h3>
+          <p>
+            Middleman holds both items for safety, releases 1-by-1 after confirmation, and traders
+            reply <strong>YES AGREE</strong> to continue the deal.
+          </p>
+        </div>
+        <div class="mode-box">
+          <h3>Money to Stuff</h3>
+          <p>
+            Seller hands over the item/pet to the middleman, buyer sends direct payment to seller,
+            and middleman releases the item once payment is confirmed.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-card">
+      <h2>Bot Commands</h2>
+      <div class="cmd-list">
+        <div class="cmd-item">
+          <div>
+            <code>$mmpanel</code>
+            <small>Post the middleman ticket panel (Admin)</small>
+          </div>
+          <button class="copy-btn" data-cmd="$mmpanel">Copy</button>
+        </div>
+
+        <div class="cmd-item">
+          <div>
+            <code>/mm-panel</code>
+            <small>Slash command for the ticket panel (Admin)</small>
+          </div>
+          <button class="copy-btn" data-cmd="/mm-panel">Copy</button>
+        </div>
+
+        <div class="cmd-item">
+          <div>
+            <code>$adduser @user</code>
+            <small>Add trade partner to private ticket</small>
+          </div>
+          <button class="copy-btn" data-cmd="$adduser @user">Copy</button>
+        </div>
+
+        <div class="cmd-item">
+          <div>
+            <code>$removeuser @user</code>
+            <small>Remove user access from ticket</small>
+          </div>
+          <button class="copy-btn" data-cmd="$removeuser @user">Copy</button>
+        </div>
+
+        <div class="cmd-item">
+          <div>
+            <code>$vouch @mm [note]</code>
+            <small>Vouch for a middleman after trade</small>
+          </div>
+          <button class="copy-btn" data-cmd="$vouch @middleman Legit and trusted!">Copy</button>
+        </div>
+
+        <div class="cmd-item">
+          <div>
+            <code>$mmhelp</code>
+            <small>View full command guide in Discord</small>
+          </div>
+          <button class="copy-btn" data-cmd="$mmhelp">Copy</button>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      Vortex Exchange Bot Middleman • Purple Streaming Desk
+    </footer>
+  </div>
+
+  <script>
+    document.querySelectorAll(".copy-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const text = btn.getAttribute("data-cmd");
+        try {
+          await navigator.clipboard.writeText(text);
+          const prev = btn.textContent;
+          btn.textContent = "Copied!";
+          setTimeout(() => {
+            btn.textContent = prev;
+          }, 1200);
+        } catch (_) {
+          btn.textContent = "Error";
+        }
+      });
+    });
+
+    async function refreshStats() {
+      try {
+        const res = await fetch("/api/stats");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.bot_name) document.getElementById("bot-title").textContent = data.bot_name;
+        if (data.status) document.getElementById("status-val").textContent = data.status;
+        document.getElementById("started-val").textContent = data.tickets_started ?? 264;
+        document.getElementById("tickets-val").textContent = data.active_tickets ?? 0;
+        document.getElementById("vouches-val").textContent = data.total_vouches ?? 0;
+      } catch (_) {}
+    }
+
+    refreshStats();
+    setInterval(refreshStats, 10000);
+  </script>
+</body>
+</html>
